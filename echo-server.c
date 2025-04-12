@@ -43,18 +43,15 @@ void daemonize() {
         exit(EXIT_FAILURE);
     }
     if (pid > 0)
-        exit(EXIT_SUCCESS);  // Родитель выходит
+        exit(EXIT_SUCCESS);
 
-    // Дочерний процесс становится лидером сессии
     if (setsid() < 0) {
         perror("setsid");
         exit(EXIT_FAILURE);
     }
-    // Игнорируем сигналы
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 
-    // Форк еще раз, чтобы запретить возможность получения терминала
     pid = fork();
     if (pid < 0) {
         perror("fork2");
@@ -63,7 +60,6 @@ void daemonize() {
     if (pid > 0)
         exit(EXIT_SUCCESS);
 
-    // Устанавливаем права доступа к файлам
     umask(0);
 
     if (chdir("/") < 0) {
@@ -174,14 +170,12 @@ int main(int argc, char *argv[]) {
     struct stat st;
     int fifo_fd;
 
-    // Проверяем существует ли FIFO
     if (mkfifo(INPUT_PATH, 0600) == -1) {
         if (errno != EEXIST) {
             perror("mkfifo");
             exit(EXIT_FAILURE);
         }
 
-        // Проверяем, что это действительно FIFO
         if (stat(INPUT_PATH, &st) == -1) {
             perror("stat");
             exit(EXIT_FAILURE);
@@ -193,10 +187,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Открываем FIFO на чтение
-
     out = stdout;
-    // Вывод в лог при работе как демон
     if (is_daemon) {
         out = fopen(OUTPUT_PATH, "w");
         if (!out) {
