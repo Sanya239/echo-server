@@ -1,0 +1,72 @@
+compiling with N=10
+starting server
+Received: this text is printed by echo-server and got from 'echo' command!
+
+Received: this text is printed by echo-server and got from 'test.txt' file!
+
+current statistics:
+messages read:  2
+size total:     132
+size last:      67
+total alarms:   0
+waiting 10 seconds for alarm to ring
+echo-server is still running and ready to read messages
+done sleeping, now sending another message
+Received: another message after sleeping
+
+now going to demonize the echo-server and do all over again
+sending messages to server
+waiting 10 seconds for alarm to ring
+done sleeping, now sending another message
+the end of test
+now running server in console with side program
+every message written in console is sent to echo_fifo
+Echo client. Please enter messages (Ctrl+C to exit):
+eeeeboecho-server is still running and ready to read messages
+i
+Received: eeeeboi
+nenene
+Received: nenene
+goida
+Received: goida
+echo-server is still running and ready to read messages
+^Cnothing
+current statistics:
+messages read:  1
+size total:     18
+size last:      18
+total alarms:   2
+sanya@UNIT-1655:~/osi/echo-server$ bash test.sh
+compiling with N=10
+starting server
+Received: this text is printed by echo-server and got from 'echo' command!
+
+Received: this text is printed by echo-server and got from 'test.txt' file!
+
+current statistics:
+messages read:  2
+size total:     132
+size last:      67
+total alarms:   0
+waiting 10 seconds for alarm to ring
+echo-server is still running and ready to read messages
+done sleeping, now sending another message
+now going to demonize the echo-server and do all over again
+Received: another message after sleeping
+
+sending messages to server
+waiting 10 seconds for alarm to ring
+done sleeping, now sending another message
+the end of test
+now running server in console with side program
+every line written in console is sent to echo_fifo
+all lines are treated as one big message. Quiting client will also turn off the server
+Echo client. Please enter messages (Ctrl+C to exit):
+server
+Received: server
+^Cnothing
+current statistics:
+messages read:  1
+size total:     6
+size last:      6
+total alarms:   0

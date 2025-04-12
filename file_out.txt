@@ -1,0 +1,23 @@
+daemonized by sighup
+current statistics:
+messages read:	3
+size total:	163
+size last:	31
+total alarms:	1
+Received: this text is printed by echo-server and got from 'echo' command!
+
+Received: this text is printed by echo-server and got from 'test.txt' file!
+
+current statistics:
+messages read:	5
+size total:	295
+size last:	67
+total alarms:	1
+Received: another message after sleeping
+
+received SIGTERM
+current statistics:
+messages read:	6
+size total:	326
+size last:	31
+total alarms:	1
