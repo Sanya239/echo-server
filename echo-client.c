@@ -22,9 +22,18 @@ int main(int argc, char **argv) {
     sa_term.sa_handler = handle_terminate;
     sigemptyset(&sa_term.sa_mask);
     sa_term.sa_flags = 0;
-    sigaction(SIGTERM, &sa_term, NULL);
-    sigaction(SIGINT, &sa_term, NULL);
-    sigaction(SIGQUIT, &sa_term, NULL);
+    if (sigaction(SIGTERM, &sa_term, NULL) == -1) {
+        perror("sigaction SIGTERM");
+        exit(EXIT_FAILURE);
+    }
+    if (sigaction(SIGINT, &sa_term, NULL) == -1) {
+        perror("sigaction SIGINT");
+        exit(EXIT_FAILURE);
+    }
+    if (sigaction(SIGQUIT, &sa_term, NULL) == -1) {
+        perror("sigaction SIGQUIT");
+        exit(EXIT_FAILURE);
+    }
 
     bool descret;
     if (argc > 1) {
@@ -47,7 +56,9 @@ int main(int argc, char **argv) {
         do {
             res = fgets(buffer, BUFFER_SIZE, stdin)!=0;
             if (!running) {
-                close(fifo_fd);
+                if (close(fifo_fd) == -1) {
+                    perror("close");
+                }
                 exit(0);
             }
         }  while (res == 0 && errno == EINTR);
@@ -65,7 +76,10 @@ int main(int argc, char **argv) {
             break;
         }
         if (descret) {
-            close(fifo_fd);
+            if (close(fifo_fd) == -1) {
+                perror("close");
+                break;
+            }
 
             fifo_fd = open(FIFO_PATH, O_WRONLY);
             if (fifo_fd == -1) {
@@ -75,6 +89,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    close(fifo_fd);
+    if (close(fifo_fd) == -1) {
+        perror("close");
+    }
     return 0;
 }

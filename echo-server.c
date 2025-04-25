@@ -34,8 +34,10 @@ int messages = 0;
 int total_size = 0;
 int last_size = 0;
 int alarms = 0;
+int is_daemon = 0;
 
 void daemonize() {
+    is_daemon = 1;
     pid_t pid = fork();
 
     if (pid < 0) {
@@ -71,9 +73,14 @@ void daemonize() {
     fclose(stdout);
     fclose(stderr);
 
-    out = fopen(OUTPUT_PATH, "w");
+    out = fopen(OUTPUT_PATH, "a");
     if (!out) {
         perror("fopen log");
+        exit(EXIT_FAILURE);
+    }
+
+    if (alarm(N) == (unsigned int) -1) {
+        fprintf(out, "Error setting alarm\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -96,9 +103,6 @@ static void handle_sighup(int signal) {
 
 
 static void handle_terminate(int signal) {
-    if (signal == SIGQUIT) {
-        return;
-    }
     if (signal == SIGTERM) {
         immediate_shutdown = true;
     }
@@ -108,7 +112,9 @@ static void handle_terminate(int signal) {
 void print_statistics() {
     fprintf(out, "current statistics:\nmessages read:\t%d\nsize total:\t%d\nsize last:\t%d\ntotal alarms:\t%d\n",
             messages, total_size, last_size, alarms);
-    fflush(out);
+    if (fflush(out) != 0) {
+        perror("fflush");
+    }
 }
 
 void check_signals() {
@@ -124,9 +130,11 @@ void check_signals() {
     }
     if (sighup) {
         sighup = 0;
-        daemonize();
-        fprintf(out, "daemonized by sighup\n");
-        print_statistics();
+        if (is_daemon == 0) {
+            daemonize();
+            fprintf(out, "daemonized by sighup\n");
+            print_statistics();
+        }
     }
 }
 
@@ -136,34 +144,52 @@ int main(int argc, char *argv[]) {
     sa_alarm.sa_handler = handle_alarm;
     sigemptyset(&sa_alarm.sa_mask);
     sa_alarm.sa_flags = 0;
-    sigaction(SIGALRM, &sa_alarm, NULL);
-
+    if (sigaction(SIGALRM, &sa_alarm, NULL) == -1) {
+        perror("sigaction SIGALRM");
+        exit(EXIT_FAILURE);
+    }
 
     struct sigaction sa_usr;
     sa_usr.sa_handler = handle_sigusr;
     sigemptyset(&sa_usr.sa_mask);
     sa_usr.sa_flags = 0;
-    sigaction(SIGUSR1, &sa_usr, NULL);
+    if (sigaction(SIGUSR1, &sa_usr, NULL) == -1) {
+        perror("sigaction SIGUSR1");
+        exit(EXIT_FAILURE);
+    }
 
     struct sigaction sa_hup;
     sa_hup.sa_handler = handle_sighup;
     sigemptyset(&sa_hup.sa_mask);
     sa_hup.sa_flags = 0;
-    sigaction(SIGHUP, &sa_hup, NULL);
-
+    if (sigaction(SIGHUP, &sa_hup, NULL) == -1) {
+        perror("sigaction SIGHUP");
+        exit(EXIT_FAILURE);
+    }
 
     struct sigaction sa_term;
     sa_term.sa_handler = handle_terminate;
     sigemptyset(&sa_term.sa_mask);
     sa_term.sa_flags = 0;
-    sigaction(SIGTERM, &sa_term, NULL);
-    sigaction(SIGINT, &sa_term, NULL);
-    sigaction(SIGQUIT, &sa_term, NULL);
+    if (sigaction(SIGTERM, &sa_term, NULL) == -1) {
+        perror("sigaction SIGTERM");
+        exit(EXIT_FAILURE);
+    }
+    if (sigaction(SIGQUIT, &sa_term, NULL) == -1) {
+        perror("sigaction SIGQUIT");
+        exit(EXIT_FAILURE);
+    }
 
+    struct sigaction sa_int;
+    sa_int.sa_handler = SIG_IGN;
+    sigemptyset(&sa_int.sa_mask);
+    sa_int.sa_flags = 0;
+    if (sigaction(SIGINT, &sa_int, NULL) == -1) {
+        perror("sigaction SIGINT");
+        exit(EXIT_FAILURE);
+    }
 
-    int is_daemon = 0;
     if (argc > 1 && strcmp(argv[1], "-daemon") == 0) {
-        is_daemon = 1;
         daemonize();
     }
 
@@ -195,7 +221,10 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
     }
-    alarm(N);
+    if (alarm(N) == (unsigned int) -1) {
+        fprintf(out, "Error setting alarm\n");
+        exit(EXIT_FAILURE);
+    }
 
     char buffer[BUFFER_SIZE];
     bool eof = false;
@@ -206,16 +235,22 @@ int main(int argc, char *argv[]) {
         fifo_fd = -1;
         do {
             check_signals();
-            fifo_fd = open(INPUT_PATH, O_RDONLY);
+            if(!immediate_shutdown && run) {
+                fifo_fd = open(INPUT_PATH, O_RDONLY);
+            }
             if (immediate_shutdown) {
                 fprintf(out, "received SIGTERM\n");
             }
-        } while (fifo_fd == -1 && errno == EINTR && !immediate_shutdown);
+        } while (fifo_fd == -1 && errno == EINTR && !immediate_shutdown && run);
         if (immediate_shutdown) {
             print_statistics();
-            unlink(INPUT_PATH);
-            if(fifo_fd!=-1) {
-                close(fifo_fd);
+            if (unlink(INPUT_PATH) == -1) {
+                perror("unlink");
+            }
+            if (fifo_fd != -1) {
+                if (close(fifo_fd) == -1) {
+                    perror("close");
+                }
             }
             exit(0);
         }
@@ -229,12 +264,18 @@ int main(int argc, char *argv[]) {
         while (!eof) {
             do {
                 check_signals();
-                n = read(fifo_fd, buffer, BUFFER_SIZE - 1);
+                if(!immediate_shutdown && run) {
+                    n = read(fifo_fd, buffer, BUFFER_SIZE - 1);
+                }
             } while (n == -1 && errno == EINTR && !immediate_shutdown);
             if (immediate_shutdown) {
                 print_statistics();
-                close(fifo_fd);
-                unlink(INPUT_PATH);
+                if (close(fifo_fd) == -1) {
+                    perror("close");
+                }
+                if (unlink(INPUT_PATH) == -1) {
+                    perror("unlink");
+                }
                 exit(0);
             }
             if (n > 0) {
@@ -247,7 +288,7 @@ int main(int argc, char *argv[]) {
 
             } else if (n == 0) {
                 if (last != '\n') {
-                    fprintf(out, "nothing\n");
+                    fprintf(out, "\n");
                 }
                 eof = true;
             } else {
@@ -257,13 +298,17 @@ int main(int argc, char *argv[]) {
             }
         }
         eof = false;
-        close(fifo_fd);
+        if (close(fifo_fd) == -1) {
+            perror("close");
+        }
     }
     print_statistics();
     if (is_daemon) {
         fclose(out);
     }
 
-    unlink(INPUT_PATH);
+    if (unlink(INPUT_PATH) == -1) {
+        perror("unlink");
+    }
     return 0;
 }
