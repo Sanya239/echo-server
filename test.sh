@@ -17,18 +17,33 @@ truncate -s 10K project/section1/subsectionA/fileA1.txt
 echo "Это файл A2" > project/section1/subsectionA/fileA2.txt
 echo "Это файл B1, в котором написан текст побольше, чем в файле А2 или А1" > project/section1/subsectionB/fileB1.txt
 echo "C1" > project/section2/subsectionC/fileC1.txt
-echo "Это файл C2, в котором написан ну просто огромный и содержательный текст. А потом этот файл ещё и ресайзнут до невероятных масштабов. Короче говоря файл-гигант!" > project/section2/subsectionC/fileC2.txt
-truncate -s 100K project/section2/subsectionC/fileC1.txt
+echo "Это файл C2, в котором написан ну просто огромный и содержательный текст(нет). Короче говоря файл-гигант!" > project/section2/subsectionC/fileC2.txt
+head -c 40K /dev/urandom >> project/section2/subsectionC/fileC2.txt
+truncate -s 1000K project/section2/subsectionC/fileC2.txt
 
 cd ..
 
 
 shopt -s globstar  # Включаем поддержку **
+
+inode_numbers=()
+test_array=()
+echo "${test_array[@]}"
+echo "Реальные данные" > stats.txt
 for file in ext2/project/**/**; do
   if [ -f "$file" ]; then
     inode=$(stat -c '%i' "$file")
-    md5=$(md5sum "$file" | awk '{print $1}')
-    echo "Файл: $file | inode: $inode | md5: $md5"  >> stats.txt
+    inode_numbers+=("$inode")
+    sha512=$(sha512sum "$file" | awk '{print $1}')
+    echo "Файл: $file | inode: $inode | sha512: $sha512"  >> stats.txt
   fi
+done
+umount ext2
+echo "Файлы сгенерированы"
+echo "Вывод утилиты" >> stats.txt
+for inode in ${inode_numbers[@]}; do
+      echo "$inode"
+      sha512=$(./main "ext2.img" "$inode" | sha512sum  | awk '{print $1}')
+      echo "Файл2: $file | inode: $inode | sha512: $sha512"  >> stats.txt
 done
 
