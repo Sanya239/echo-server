@@ -40,6 +40,8 @@ for file in ext2/project/**/**; do
 done
 umount ext2
 echo "Файлы сгенерированы"
+
+gcc -o main main.c
 echo "Вывод утилиты" >> stats.txt
 for inode in ${inode_numbers[@]}; do
       echo "$inode"
